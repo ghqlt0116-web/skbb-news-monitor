@@ -16,35 +16,66 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Trigger Dify workflow
+      - name: Trigger Dify and extract HTML
         run: |
-          curl -s \
-            --max-time 300 \
-            --retry 2 \
-            --retry-delay 10 \
-            -X POST "https://api.dify.ai/v1/workflows/run" \
-            -H "Authorization: Bearer ${{ secrets.DIFY_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"inputs\": {\"run_type\": \"scheduled\"}, \"response_mode\": \"blocking\", \"user\": \"github-actions\"}" \
-            -o dify_response.json
-          echo "=== 응답 확인 ==="
-          cat dify_response.json
-
-      - name: Extract HTML
-        run: |
-          python3 -c "
+          python3 << 'EOF'
+          import urllib.request
           import json
-          with open('dify_response.json') as f:
-              data = json.load(f)
-          html = data['data']['outputs']['html_report']
-          with open('report.html', 'w', encoding='utf-8') as f:
-              f.write(html)
-          print('Done:', len(html), 'chars')
-          "
+          import os
+
+          api_key = os.environ['DIFY_API_KEY']
+          url = "https://api.dify.ai/v1/workflows/run"
+
+          payload = json.dumps({
+              "inputs": {"run_type": "scheduled"},
+              "response_mode": "streaming",
+              "user": "github-actions"
+          }).encode('utf-8')
+
+          req = urllib.request.Request(
+              url,
+              data=payload,
+              headers={
+                  "Authorization": f"Bearer {api_key}",
+                  "Content-Type": "application/json"
+              }
+          )
+
+          html_report = None
+          with urllib.request.urlopen(req, timeout=300) as resp:
+              for line in resp:
+                  line = line.decode('utf-8').strip()
+                  if not line.startswith('data:'):
+                      continue
+                  data_str = line[5:].strip()
+                  if not data_str or data_str == '[DONE]':
+                      continue
+                  try:
+                      data = json.loads(data_str)
+                      event = data.get('event', '')
+                      if event == 'workflow_finished':
+                          outputs = data.get('data', {}).get('outputs', {})
+                          html_report = outputs.get('html_report')
+                          print(f"워크플로우 완료! HTML 길이: {len(html_report) if html_report else 0}")
+                          break
+                  except json.JSONDecodeError:
+                      continue
+
+          if html_report:
+              with open('report.html', 'w', encoding='utf-8') as f:
+                  f.write(html_report)
+              print("report.html 저장 완료!")
+          else:
+              print("html_report를 찾지 못했습니다.")
+              exit(1)
+          EOF
+        env:
+          DIFY_API_KEY: ${{ secrets.DIFY_API_KEY }}
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add report.html
-          git diff --staged --quiet || git commit -m "update: news report $(date +'%Y-%m-%d
+          git diff --staged --quiet || git commit -m "update: news report $(date +'%Y-%m-%d %H:%M KST')"
+          git push
