@@ -16,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-- name: Trigger Dify workflow
+      - name: Trigger Dify workflow
         run: |
           curl -s \
             --max-time 300 \
@@ -45,4 +45,6 @@ jobs:
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
-          git config us
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add report.html
+          git diff --staged --quiet || git commit -m "update: news report $(date +'%Y-%m-%d
