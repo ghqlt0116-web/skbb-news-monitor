@@ -26,16 +26,14 @@ jobs:
           echo "$RESPONSE" > dify_response.json
           cat dify_response.json
 
-      - name: Extract HTML
+- name: Extract HTML
         run: |
           python3 -c "
           import json
           with open('dify_response.json') as f:
               data = json.load(f)
-          html = data['data']['outputs']['html_report']
-          with open('report.html', 'w') as f:
-              f.write(html)
-          print('Done:', len(html), 'chars')
+          print('=== 전체 응답 구조 ===')
+          print(json.dumps(data, indent=2, ensure_ascii=False)[:3000])
           "
 
       - name: Commit and push
