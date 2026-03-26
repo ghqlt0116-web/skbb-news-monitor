@@ -21,9 +21,10 @@ jobs:
           python3 << 'EOF'
           import urllib.request
           import json
-          import os
 
-          api_key = os.environ['DIFY_API_KEY']
+          api_key = "${{ secrets.DIFY_API_KEY }}"
+          print(f"API 키 앞 10자리: {api_key[:10]}")
+
           url = "https://api.dify.ai/v1/workflows/run"
 
           payload = json.dumps({
@@ -56,7 +57,7 @@ jobs:
                       if event == 'workflow_finished':
                           outputs = data.get('data', {}).get('outputs', {})
                           html_report = outputs.get('html_report')
-                          print(f"워크플로우 완료! HTML 길이: {len(html_report) if html_report else 0}")
+                          print(f"완료! HTML 길이: {len(html_report) if html_report else 0}")
                           break
                   except json.JSONDecodeError:
                       continue
@@ -69,8 +70,6 @@ jobs:
               print("html_report를 찾지 못했습니다.")
               exit(1)
           EOF
-        env:
-          DIFY_API_KEY: ${{ secrets.DIFY_API_KEY }}
 
       - name: Commit and push
         run: |
