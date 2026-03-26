@@ -26,7 +26,7 @@ jobs:
           echo "$RESPONSE" > dify_response.json
           cat dify_response.json
 
-- name: Extract HTML
+      - name: Extract HTML
         run: |
           python3 -c "
           import json
