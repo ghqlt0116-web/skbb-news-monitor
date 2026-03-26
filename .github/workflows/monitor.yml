@@ -1,0 +1,47 @@
+name: SKBB News Monitor
+
+on:
+  schedule:
+    - cron: '0 23 * * *'
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trigger Dify workflow
+        id: dify
+        run: |
+          RESPONSE=$(curl -s -X POST "https://api.dify.ai/v1/workflows/run" \
+            -H "Authorization: Bearer ${{ secrets.DIFY_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"inputs": {"run_type": "scheduled"}, "response_mode": "blocking", "user": "github-actions"}')
+          echo "$RESPONSE" > dify_response.json
+          cat dify_response.json
+
+      - name: Extract HTML
+        run: |
+          python3 -c "
+          import json
+          with open('dify_response.json') as f:
+              data = json.load(f)
+          html = data['data']['outputs']['html_report']
+          with open('report.html', 'w') as f:
+              f.write(html)
+          print('Done:', len(html), 'chars')
+          "
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add report.html
+          git diff --staged --quiet || git commit -m "update: news report $(date +'%Y-%m-%d %H:%M KST')"
+          git push
