@@ -16,14 +16,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Trigger Dify workflow
+- name: Trigger Dify workflow
         run: |
           curl -s \
+            --max-time 300 \
+            --retry 2 \
+            --retry-delay 10 \
             -X POST "https://api.dify.ai/v1/workflows/run" \
             -H "Authorization: Bearer ${{ secrets.DIFY_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d "{\"inputs\": {\"run_type\": \"scheduled\"}, \"response_mode\": \"blocking\", \"user\": \"github-actions\"}" \
             -o dify_response.json
+          echo "=== 응답 확인 ==="
           cat dify_response.json
 
       - name: Extract HTML
